@@ -1,0 +1,47 @@
+services:
+  # Backend API (Free tier - 750 hours/month, spins down after 15 min idle)
+  - type: web
+    name: my-app-backend-b97535
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main_api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 8000
+
+  # Frontend (Free static site)
+  - type: web
+    name: my-app-frontend-b97535
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: VITE_API_URL
+        value: https://my-app-backend-b97535.onrender.com
+    headers:
+      - path: /assets/*.js
+        name: Content-Type
+        value: application/javascript
+      - path: /assets/*.css
+        name: Content-Type
+        value: text/css
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # Agent Service (Free tier - WebSocket-based AI agent)
+  - type: web
+    name: my-app-agent-b97535
+    runtime: python
+    plan: free
+    buildCommand: pip install torch==2.6.0+cpu scikit-learn==1.6.1 besser-agentic-framework[llms]==4.2.3 --extra-index-url https://download.pytorch.org/whl/cpu && python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('punkt_tab', quiet=True)"
+    startCommand: cd agent && sed -i 's/^websocket\.host = .*/websocket.host = 0.0.0.0/' config.ini && sed -i "s/^websocket\.port = .*/websocket.port = $PORT/" config.ini && sed -i "s/^nlp\.openai\.api_key = .*/nlp.openai.api_key = $OPENAI_API_KEY/" config.ini && python -u Agent_Diagram.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: OPENAI_API_KEY
+        sync: false
